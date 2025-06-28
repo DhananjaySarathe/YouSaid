@@ -36,7 +36,7 @@ function callGeminiWithUserKey(
   sendResponse: (response: CommentResponse) => void
 ) {
   fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: {
@@ -47,11 +47,15 @@ function callGeminiWithUserKey(
           {
             parts: [
               {
-                text: `Write 3 short, human-sounding LinkedIn comments for the following post. Post: "${message.post}" Tone: "${message.tone}"`,
+                text: `Write 3 short, human-sounding LinkedIn comments for the following post. Each comment should be on a separate line. Make them ${message.tone} in style. Post: "${message.post}"`,
               },
             ],
           },
         ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 200,
+        },
       }),
     }
   )
@@ -60,8 +64,9 @@ function callGeminiWithUserKey(
       if (data.error) {
         sendResponse({
           success: false,
-          error: `API Error: ${data.error.message ||
-            "Invalid API key or request"}`,
+          error: `API Error: ${
+            data.error.message || "Invalid API key or request"
+          }`,
         });
         return;
       }
