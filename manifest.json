@@ -1,0 +1,28 @@
+{
+    "manifest_version": 3,
+    "name": "LinkedIn Tone Assistant",
+    "version": "1.0",
+    "description": "Learn and suggest LinkedIn comment tones based on your style.",
+    "permissions": [
+      "activeTab",
+      "storage",
+      "identity"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "content_scripts": [
+      {
+        "matches": ["https://www.linkedin.com/*"],
+        "js": ["content.js"]
+      }
+    ],
+    "action": {
+      "default_popup": "popup.html",
+      "default_icon": "icon.png"
+    },
+    "host_permissions": [
+      "https://generativelanguage.googleapis.com/*"
+    ]
+  }
+  
