@@ -201,15 +201,9 @@ function extractPostContent(commentField: HTMLElement): string | null {
       postText = postTextElement.textContent?.trim() || "";
     }
 
-    // Extract author name
-    const authorElement = postContainer.querySelector(
-      ".feed-shared-actor__name, .feed-shared-update-v2__actor-name"
-    );
-    const authorName = authorElement?.textContent?.trim() || "Someone";
-
     // Combine context
     if (postText) {
-      return `${authorName} posted: "${postText}"`;
+      return `Post: "${postText}"`;
     }
 
     return null;
@@ -372,7 +366,7 @@ function displaySuggestions(
   postContent: string
 ) {
   container.innerHTML = `
-    <div style="display: flex; justify-between; align-items: center; margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
       <div style="color: #60a5fa; font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px;">
         <span style="background: linear-gradient(135deg, #60a5fa, #a855f7); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
           🤖 YouSaid AI
