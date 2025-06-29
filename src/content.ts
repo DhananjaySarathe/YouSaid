@@ -41,46 +41,73 @@ document.addEventListener(
   true
 );
 
-// Listen for input events on LinkedIn comment areas (for learning)
-document.addEventListener("input", (event) => {
+// Listen for comment submissions (when user clicks Post button)
+document.addEventListener("click", (event) => {
   const target = event.target as HTMLElement;
 
-  // Check if the target is a LinkedIn comment input
+  // Check if user clicked a LinkedIn comment/post submit button
   if (
     target &&
-    target.matches(
-      '[data-artdeco-is-focused="true"], .ql-editor, [contenteditable="true"]'
-    )
+    (target.matches('button[data-control-name="comment.post"]') ||
+      target.matches('button[type="submit"]') ||
+      target.closest('button[data-control-name="comment.post"]') ||
+      target.closest('button[type="submit"]') ||
+      target.textContent?.trim().toLowerCase().includes("post") ||
+      target.getAttribute("aria-label")?.toLowerCase().includes("post"))
   ) {
-    const textContent = target.textContent || "";
-    if (textContent.trim().length > 15) {
-      // Increased minimum length for better quality
-      // Check if this comment is different from the last one
-      if (
-        commentHistory.length === 0 ||
-        commentHistory[commentHistory.length - 1] !== textContent.trim()
-      ) {
-        commentHistory.push(textContent.trim());
+    // Find the associated comment field
+    const commentField = findNearbyCommentField(target);
+    if (commentField) {
+      const textContent = commentField.textContent || "";
+      if (textContent.trim().length > 15) {
+        // Check if this comment is different from the last one
+        if (
+          commentHistory.length === 0 ||
+          commentHistory[commentHistory.length - 1] !== textContent.trim()
+        ) {
+          commentHistory.push(textContent.trim());
 
-        // Keep only the last 10 comments
-        if (commentHistory.length > 10) {
-          commentHistory = commentHistory.slice(-10);
+          // Keep only the last 10 comments
+          if (commentHistory.length > 10) {
+            commentHistory = commentHistory.slice(-10);
+          }
+
+          // Save to storage
+          try {
+            chrome.storage.local.set({ userCommentHistory: commentHistory });
+          } catch {
+            console.log(
+              "Extension context invalidated - please reload the page"
+            );
+            return;
+          }
+
+          // Show visual feedback
+          showCaptureNotification(commentHistory.length);
         }
-
-        // Save to storage
-        try {
-          chrome.storage.local.set({ userCommentHistory: commentHistory });
-        } catch {
-          console.log("Extension context invalidated - please reload the page");
-          return;
-        }
-
-        // Show visual feedback
-        showCaptureNotification(commentHistory.length);
       }
     }
   }
 });
+
+// Helper function to find nearby comment field
+function findNearbyCommentField(button: HTMLElement): HTMLElement | null {
+  // Look for comment field in the same container
+  const container =
+    button.closest(".comments-comment-box") ||
+    button.closest(".comments-comment-texteditor") ||
+    button.closest(".comment-form") ||
+    button.closest("[data-test-id]") ||
+    button.closest(".feed-shared-update-v2");
+
+  if (container) {
+    const commentField = container.querySelector(
+      '.ql-editor, [contenteditable="true"], textarea'
+    ) as HTMLElement;
+    return commentField;
+  }
+  return null;
+}
 
 // Show a notification when a comment is captured
 function showCaptureNotification(totalComments: number) {
@@ -205,32 +232,30 @@ function showCommentSuggestions(
 
   // Check if user has API key and comments
   try {
-    chrome.storage.local.get(
-      ["geminiApiKey", "userToneProfile", "userCommentHistory"],
-      (data) => {
-        if (chrome.runtime.lastError) {
-          showQuickNotification(
-            "Extension context invalidated - please reload the page"
-          );
-          return;
-        }
+    chrome.storage.local.get(["geminiApiKey", "userCommentHistory"], (data) => {
+      if (chrome.runtime.lastError) {
+        showQuickNotification(
+          "Extension context invalidated - please reload the page"
+        );
+        return;
+      }
 
-        if (!data.geminiApiKey) {
-          showQuickNotification("Please set your API key in YouSaid extension");
-          return;
-        }
+      if (!data.geminiApiKey) {
+        showQuickNotification("Please set your API key in YouSaid extension");
+        return;
+      }
 
-        if (!data.userCommentHistory || data.userCommentHistory.length < 3) {
-          showQuickNotification(
-            "YouSaid needs 3+ sample comments to generate suggestions"
-          );
-          return;
-        }
+      if (!data.userCommentHistory || data.userCommentHistory.length < 3) {
+        showQuickNotification(
+          "YouSaid needs 3+ sample comments to generate suggestions"
+        );
+        return;
+      }
 
-        // Create suggestions container
-        const suggestionsContainer = document.createElement("div");
-        suggestionsContainer.id = "yousaid-suggestions";
-        suggestionsContainer.style.cssText = `
+      // Create suggestions container
+      const suggestionsContainer = document.createElement("div");
+      suggestionsContainer.id = "yousaid-suggestions";
+      suggestionsContainer.style.cssText = `
       position: fixed;
       bottom: 20px;
       right: 20px;
@@ -250,8 +275,8 @@ function showCommentSuggestions(
       transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     `;
 
-        // Add loading state
-        suggestionsContainer.innerHTML = `
+      // Add loading state
+      suggestionsContainer.innerHTML = `
       <div style="display: flex; align-items: center; gap: 12px; color: #60a5fa; font-weight: 600; margin-bottom: 16px; font-size: 16px;">
         <div style="width: 20px; height: 20px; border: 2px solid #60a5fa; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
         <span style="background: linear-gradient(135deg, #60a5fa, #a855f7); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
@@ -260,8 +285,8 @@ function showCommentSuggestions(
       </div>
       <div style="font-size: 13px; color: #a1a1aa; line-height: 1.5; background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 8px; margin-bottom: 16px; max-height: 60px; overflow: hidden;">
         📝 ${postContent.substring(0, 120)}${
-          postContent.length > 120 ? "..." : ""
-        }
+        postContent.length > 120 ? "..." : ""
+      }
       </div>
       <div style="text-align: center; color: #71717a; font-size: 12px;">
         Generating personalized suggestions...
@@ -271,27 +296,27 @@ function showCommentSuggestions(
       </style>
     `;
 
-        document.body.appendChild(suggestionsContainer);
+      document.body.appendChild(suggestionsContainer);
 
-        // Animate in
-        setTimeout(() => {
-          suggestionsContainer.style.transform = "translateY(0)";
-          suggestionsContainer.style.opacity = "1";
-        }, 100);
+      // Animate in
+      setTimeout(() => {
+        suggestionsContainer.style.transform = "translateY(0)";
+        suggestionsContainer.style.opacity = "1";
+      }, 100);
 
-        document.body.appendChild(suggestionsContainer);
+      document.body.appendChild(suggestionsContainer);
 
-        // Generate suggestions
-        try {
-          chrome.runtime.sendMessage(
-            {
-              type: "generate_comments",
-              post: postContent,
-              tone: data.userToneProfile || "professional",
-            },
-            (response) => {
-              if (chrome.runtime.lastError) {
-                suggestionsContainer.innerHTML = `
+      // Generate suggestions
+      try {
+        chrome.runtime.sendMessage(
+          {
+            type: "generate_comments",
+            post: postContent,
+            previousComments: data.userCommentHistory || [],
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              suggestionsContainer.innerHTML = `
                 <div style="color: #d32f2f; font-weight: 500; margin-bottom: 8px;">
                   ❌ Extension context invalidated
                 </div>
@@ -299,18 +324,18 @@ function showCommentSuggestions(
                   Please reload the page and try again
                 </div>
               `;
-                return;
-              }
+              return;
+            }
 
-              if (response.success && response.comments) {
-                displaySuggestions(
-                  suggestionsContainer,
-                  response.comments,
-                  commentField,
-                  postContent
-                );
-              } else {
-                suggestionsContainer.innerHTML = `
+            if (response.success && response.comments) {
+              displaySuggestions(
+                suggestionsContainer,
+                response.comments,
+                commentField,
+                postContent
+              );
+            } else {
+              suggestionsContainer.innerHTML = `
           <div style="color: #f87171; font-weight: 600; margin-bottom: 12px; font-size: 16px;">
             ❌ Error generating suggestions
           </div>
@@ -318,11 +343,11 @@ function showCommentSuggestions(
             ${response.error || "Unknown error occurred"}
           </div>
         `;
-              }
             }
-          );
-        } catch {
-          suggestionsContainer.innerHTML = `
+          }
+        );
+      } catch {
+        suggestionsContainer.innerHTML = `
            <div style="color: #d32f2f; font-weight: 500; margin-bottom: 8px;">
              ❌ Extension context invalidated
            </div>
@@ -330,9 +355,8 @@ function showCommentSuggestions(
              Please reload the page and try again
            </div>
          `;
-        }
       }
-    );
+    });
   } catch {
     showQuickNotification(
       "Extension context invalidated - please reload the page"
@@ -513,47 +537,4 @@ function showQuickNotification(message: string) {
   }, 2500);
 }
 
-// Analyze user's writing style after collecting enough samples
-chrome.storage.local.get(["userCommentHistory"], (data) => {
-  if (data.userCommentHistory && data.userCommentHistory.length >= 6) {
-    analyzeWritingTone(data.userCommentHistory);
-  }
-});
-
-function analyzeWritingTone(comments: string[]) {
-  // Simple tone analysis based on patterns
-  let tone = "professional";
-
-  const casualWords = ["awesome", "cool", "great", "love", "amazing"];
-  const professionalWords = [
-    "pleased",
-    "excellent",
-    "appreciate",
-    "congratulations",
-    "insights",
-  ];
-
-  let casualCount = 0;
-  let professionalCount = 0;
-
-  comments.forEach((comment) => {
-    const lowerComment = comment.toLowerCase();
-    casualWords.forEach((word) => {
-      if (lowerComment.includes(word)) casualCount++;
-    });
-    professionalWords.forEach((word) => {
-      if (lowerComment.includes(word)) professionalCount++;
-    });
-  });
-
-  if (casualCount > professionalCount) {
-    tone = "casual and friendly";
-  } else if (professionalCount > casualCount) {
-    tone = "professional and formal";
-  } else {
-    tone = "balanced and approachable";
-  }
-
-  // Save the detected tone
-  chrome.storage.local.set({ userToneProfile: tone });
-}
+// Content script initialization complete

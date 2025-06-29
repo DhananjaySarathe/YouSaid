@@ -2,18 +2,9 @@ import { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 
-interface CommentResponse {
-  success: boolean;
-  comments?: string[];
-  error?: string;
-}
-
 function Popup() {
-  const [tone, setTone] = useState<string>("");
-  const [comments, setComments] = useState<string[]>([]);
   const [apiKey, setApiKey] = useState<string>("");
   const [showSettings, setShowSettings] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [capturedComments, setCapturedComments] = useState<string[]>([]);
   const [showManualInput, setShowManualInput] = useState<boolean>(false);
   const [manualComments, setManualComments] = useState<string[]>([
@@ -28,26 +19,17 @@ function Popup() {
   const [hoveredComment, setHoveredComment] = useState<number>(-1);
 
   useEffect(() => {
-    // Retrieve the user's tone, comment history, and API key from storage
-    chrome.storage.local.get(
-      ["userToneProfile", "userCommentHistory", "geminiApiKey"],
-      (data) => {
-        if (data.userToneProfile) {
-          setTone(data.userToneProfile);
-        }
-        if (data.geminiApiKey) {
-          setApiKey(data.geminiApiKey);
-        } else {
-          setShowSettings(true); // Show settings if no API key
-        }
-        if (data.userCommentHistory) {
-          setCapturedComments(data.userCommentHistory);
-          if (data.userCommentHistory.length >= 6) {
-            generateComments(data.userToneProfile);
-          }
-        }
+    // Retrieve the user's comment history and API key from storage
+    chrome.storage.local.get(["userCommentHistory", "geminiApiKey"], (data) => {
+      if (data.geminiApiKey) {
+        setApiKey(data.geminiApiKey);
+      } else {
+        setShowSettings(true); // Show settings if no API key
       }
-    );
+      if (data.userCommentHistory) {
+        setCapturedComments(data.userCommentHistory);
+      }
+    });
   }, []);
 
   const saveApiKey = () => {
@@ -67,17 +49,15 @@ function Popup() {
       chrome.storage.local.set(
         {
           userCommentHistory: validComments,
-          userToneProfile: analyzeWritingTone(validComments),
         },
         () => {
           setCapturedComments(validComments);
-          setTone(analyzeWritingTone(validComments));
           setShowManualInput(false);
           alert(`${validComments.length} comments saved successfully!`);
         }
       );
     } else {
-      alert("Please enter at least 3 comments to analyze your writing style.");
+      alert("Please enter at least 3 comments to learn your writing style.");
     }
   };
 
@@ -85,115 +65,27 @@ function Popup() {
     const updatedComments = [...capturedComments];
     updatedComments[index] = newComment;
     setCapturedComments(updatedComments);
-    chrome.storage.local.set(
-      {
-        userCommentHistory: updatedComments,
-        userToneProfile: analyzeWritingTone(updatedComments),
-      },
-      () => {
-        setTone(analyzeWritingTone(updatedComments));
-      }
-    );
+    chrome.storage.local.set({
+      userCommentHistory: updatedComments,
+    });
     setEditingIndex(-1);
   };
 
   const deleteCapturedComment = (index: number) => {
     const updatedComments = capturedComments.filter((_, i) => i !== index);
     setCapturedComments(updatedComments);
-    chrome.storage.local.set(
-      {
-        userCommentHistory: updatedComments,
-        userToneProfile:
-          updatedComments.length > 0 ? analyzeWritingTone(updatedComments) : "",
-      },
-      () => {
-        setTone(
-          updatedComments.length > 0 ? analyzeWritingTone(updatedComments) : ""
-        );
-      }
-    );
+    chrome.storage.local.set({
+      userCommentHistory: updatedComments,
+    });
   };
 
   const clearAllComments = () => {
     if (confirm("Are you sure you want to clear all captured comments?")) {
       setCapturedComments([]);
-      setTone("");
       chrome.storage.local.set({
         userCommentHistory: [],
-        userToneProfile: "",
       });
     }
-  };
-
-  const analyzeWritingTone = (comments: string[]): string => {
-    if (comments.length === 0) return "";
-
-    let tone = "professional";
-    const casualWords = [
-      "awesome",
-      "cool",
-      "great",
-      "love",
-      "amazing",
-      "wow",
-      "nice",
-      "lol",
-    ];
-    const professionalWords = [
-      "pleased",
-      "excellent",
-      "appreciate",
-      "congratulations",
-      "insights",
-      "valuable",
-      "impressive",
-    ];
-
-    let casualCount = 0;
-    let professionalCount = 0;
-
-    comments.forEach((comment) => {
-      const lowerComment = comment.toLowerCase();
-      casualWords.forEach((word) => {
-        if (lowerComment.includes(word)) casualCount++;
-      });
-      professionalWords.forEach((word) => {
-        if (lowerComment.includes(word)) professionalCount++;
-      });
-    });
-
-    if (casualCount > professionalCount) {
-      tone = "casual and friendly";
-    } else if (professionalCount > casualCount) {
-      tone = "professional and formal";
-    } else {
-      tone = "balanced and approachable";
-    }
-
-    return tone;
-  };
-
-  const generateComments = (tone: string) => {
-    if (tone && apiKey) {
-      setIsLoading(true);
-      chrome.runtime.sendMessage(
-        { type: "generate_comments", tone, post: "Sample LinkedIn post" },
-        (response: CommentResponse) => {
-          setIsLoading(false);
-          if (response.success && response.comments) {
-            setComments(response.comments);
-          } else {
-            alert(response.error || "Failed to generate comments");
-          }
-        }
-      );
-    }
-  };
-
-  const getToneIcon = (toneText: string) => {
-    if (toneText.includes("casual")) return "😊";
-    if (toneText.includes("professional")) return "💼";
-    return "⚖️";
   };
 
   if (showSettings) {
@@ -272,9 +164,7 @@ function Popup() {
           <div className="info-icon">💭</div>
           <div className="info-content">
             <h3>Comment Analysis</h3>
-            <p>
-              Enter at least 3 sample comments to analyze your writing style
-            </p>
+            <p>Enter at least 3 sample comments to learn your writing style</p>
           </div>
         </div>
 
@@ -309,7 +199,7 @@ function Popup() {
 
         <button onClick={saveManualComments} className="btn-primary full-width">
           <span className="btn-icon">🚀</span>
-          Save Comments & Analyze Style
+          Save Comments & Learn Style
         </button>
       </div>
     );
@@ -327,14 +217,14 @@ function Popup() {
         </button>
       </div>
 
-      {/* Tone Display */}
-      <div className="tone-card">
-        <div className="tone-icon">{getToneIcon(tone)}</div>
-        <div className="tone-content">
-          <span className="tone-label">Current Tone</span>
-          <span className={`tone-value ${tone ? "" : "not-set"}`}>
-            {tone || "Not analyzed yet"}
-          </span>
+      <div className="info-card">
+        <div className="info-icon">💡</div>
+        <div className="info-content">
+          <h3>How it works</h3>
+          <p>
+            YouSaid learns from your LinkedIn comments to suggest personalized
+            responses when you're browsing posts
+          </p>
         </div>
       </div>
 
@@ -448,87 +338,12 @@ function Popup() {
               <div className="empty-icon">📝</div>
               <h3>No Comments Yet</h3>
               <p>
-                Comments will appear here as you type on LinkedIn or add them
-                manually
+                Comments will be captured automatically when you post on
+                LinkedIn, or add them manually
               </p>
             </div>
           )}
         </div>
-      </div>
-
-      {/* AI Suggestions Section */}
-      <div className="section">
-        <div className="section-header">
-          <div className="section-title">
-            <span className="section-icon">✨</span>
-            <h2>AI Suggestions</h2>
-            {comments.length > 0 && (
-              <div className="comment-badge">{comments.length}</div>
-            )}
-          </div>
-        </div>
-
-        <div className="suggestions-container">
-          {isLoading ? (
-            <div className="loading-state">
-              <div className="loading-spinner"></div>
-              <div className="loading-text">
-                <h3>Generating Comments...</h3>
-                <p>AI is analyzing your tone and creating suggestions</p>
-              </div>
-            </div>
-          ) : comments.length > 0 ? (
-            comments.map((comment, idx) => (
-              <div key={idx} className="suggestion-item">
-                <div className="suggestion-header">
-                  <span className="suggestion-number">{idx + 1}</span>
-                  <button
-                    className="copy-btn"
-                    onClick={() => {
-                      navigator.clipboard.writeText(comment);
-                      // Could add a toast notification here
-                    }}
-                    title="Copy to clipboard"
-                  >
-                    <span className="btn-icon">📋</span>
-                  </button>
-                </div>
-                <div className="suggestion-text">{comment}</div>
-              </div>
-            ))
-          ) : (
-            <div className="empty-state">
-              <div className="empty-icon">🎯</div>
-              <h3>Ready to Generate</h3>
-              <p>
-                Click the button below to get AI-powered comment suggestions
-              </p>
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={() => generateComments(tone)}
-          disabled={!apiKey || isLoading || capturedComments.length < 3}
-          className={`btn-primary full-width ${isLoading ? "loading" : ""}`}
-          style={{ marginTop: "16px" }}
-        >
-          {isLoading ? (
-            <>
-              <div className="btn-spinner"></div>
-              Generating...
-            </>
-          ) : (
-            <>
-              <span className="btn-icon">🚀</span>
-              {capturedComments.length < 3
-                ? `Generate Comments (Need ${
-                    3 - capturedComments.length
-                  } more samples)`
-                : "Generate Comments"}
-            </>
-          )}
-        </button>
       </div>
     </div>
   );
