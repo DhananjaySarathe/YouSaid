@@ -12,11 +12,7 @@ interface CommentResponse {
 
 chrome.runtime.onMessage.addListener(
   (message: GenerateCommentsMessage, _sender, sendResponse) => {
-    console.log("📨 YouSaid: Received message:", message);
-
     if (message.type === "generate_comments") {
-      console.log("🎯 Generate comments request received");
-
       // Get API key from user's local storage
       chrome.storage.local.get(["geminiApiKey"], (result) => {
         if (!result.geminiApiKey) {
@@ -27,10 +23,6 @@ chrome.runtime.onMessage.addListener(
           });
           return;
         }
-        console.log("🔑 API key found, proceeding with API call");
-        console.log(
-          `💬 Using ${message.previousComments.length}/6 user comments for generation`
-        );
         callGeminiWithUserKey(message, result.geminiApiKey, sendResponse);
       });
       return true;
@@ -82,13 +74,9 @@ Write each comment on a separate line. Make sure to keep the writing natural and
     }
   )
     .then((response) => {
-      console.log("📡 API Response status:", response.status);
-      console.log("📡 API Response headers:", response.headers);
       return response.json();
     })
     .then((data) => {
-      console.log("✅ Gemini API Response:", JSON.stringify(data, null, 2));
-
       if (data.error) {
         console.error("❌ API Error:", data.error);
         sendResponse({
@@ -104,8 +92,6 @@ Write each comment on a separate line. Make sure to keep the writing natural and
         data.candidates?.[0]?.content?.parts?.[0]?.text
           ?.split("\n")
           .filter(Boolean) || [];
-
-      console.log("💬 Generated comments:", generatedComments);
 
       sendResponse({
         success: true,

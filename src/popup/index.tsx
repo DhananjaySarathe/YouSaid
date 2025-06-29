@@ -82,9 +82,35 @@ function Popup() {
   const clearAllComments = () => {
     if (confirm("Are you sure you want to clear all captured comments?")) {
       setCapturedComments([]);
-      chrome.storage.local.set({
-        userCommentHistory: [],
-      });
+
+      // Clear storage completely with callback
+      chrome.storage.local.set(
+        {
+          userCommentHistory: [],
+        },
+        () => {
+          console.log("✅ Storage cleared successfully");
+
+          // Notify content script to reset session state
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0]?.id) {
+              chrome.tabs
+                .sendMessage(tabs[0].id, {
+                  action: "clearSession",
+                })
+                .then(() => {
+                  console.log("✅ Content script session cleared");
+                })
+                .catch(() => {
+                  // Content script might not be loaded, that's okay
+                  console.log(
+                    "⚠️ Could not reach content script (probably not loaded)"
+                  );
+                });
+            }
+          });
+        }
+      );
     }
   };
 

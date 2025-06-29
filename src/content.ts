@@ -1,136 +1,301 @@
-// Content script for LinkedIn comment tracking
+// YouSaid Chrome Extension - Content Script for LinkedIn
 let commentHistory: string[] = [];
-const insertedSuggestions: Set<string> = new Set(); // Track AI-generated suggestions
+const insertedSuggestions = new Set<string>();
 
-// Clean up old suggestions every 10 minutes to prevent memory leaks
-setInterval(() => {
-  if (insertedSuggestions.size > 0) {
-    console.log("🧹 Cleaning up old AI suggestions from memory");
-    insertedSuggestions.clear();
-  }
-}, 10 * 60 * 1000); // 10 minutes
+// Track active comment fields and their content
+const activeCommentFields = new Map<HTMLElement, string>();
+let typingTimeout: number | null = null;
+
+// Simple session tracking - one comment per typing session
+let currentTypingField: HTMLElement | null = null;
+let currentTypingContent = "";
+let currentSessionCommentIndex = -1; // Index of comment being updated in this session
 
 // Initialize by loading existing comments
 try {
   chrome.storage.local.get(["userCommentHistory"], (data) => {
     if (chrome.runtime.lastError) {
-      console.log(
-        "Chrome extension context invalidated - please reload the page"
-      );
       return;
     }
-    if (data.userCommentHistory) {
+    if (data.userCommentHistory && data.userCommentHistory.length > 0) {
       commentHistory = data.userCommentHistory;
+      console.log("📚 Loaded existing comments:", commentHistory.length);
+    } else {
+      // No comments in storage - reset session state
+      commentHistory = [];
+      currentTypingField = null;
+      currentTypingContent = "";
+      currentSessionCommentIndex = -1;
+      activeCommentFields.clear();
+      console.log("🧹 No comments in storage - starting fresh");
     }
   });
-} catch {
-  console.log("Extension context invalidated - please reload the page");
+} catch (error) {
+  console.error("Error loading existing comments:", error);
 }
 
-// Listen for focus events on LinkedIn comment areas
-document.addEventListener(
-  "focus",
-  (event) => {
-    const target = event.target as HTMLElement;
+// Helper function to count words in a text
+function countWords(text: string): number {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0).length;
+}
 
-    // Check if user focused on a comment input
+// Function to capture or update a comment with simple session tracking
+function captureTypedComment(commentText: string, source: string = "typing") {
+  const trimmedComment = commentText.trim();
+  const wordCount = countWords(trimmedComment);
+
+  // Check if this is an AI-generated suggestion (don't capture it)
+  if (insertedSuggestions.has(trimmedComment)) {
+    insertedSuggestions.delete(trimmedComment);
+    return;
+  }
+
+  // If too short, remove the session comment if it exists
+  if (wordCount < 3) {
     if (
-      target &&
-      target.matches(
-        '[data-artdeco-is-focused="true"], .ql-editor, [contenteditable="true"]'
-      )
+      currentSessionCommentIndex >= 0 &&
+      currentSessionCommentIndex < commentHistory.length
     ) {
-      // Get the post content for this comment field
-      const postContent = extractPostContent(target);
-      if (postContent) {
-        showCommentSuggestions(target, postContent);
+      commentHistory.splice(currentSessionCommentIndex, 1);
+      currentSessionCommentIndex = -1;
+
+      // Save to storage
+      try {
+        chrome.storage.local.set({ userCommentHistory: commentHistory });
+      } catch {
+        console.log("Extension context invalidated - please reload the page");
       }
     }
-  },
-  true
-);
+    return;
+  }
 
-// Listen for comment submissions (when user clicks Post button)
-document.addEventListener("click", (event) => {
-  const target = event.target as HTMLElement;
-
-  // Check if user clicked a LinkedIn comment/post submit button
+  // If we're updating an existing comment in this session
   if (
-    target &&
-    (target.matches('button[data-control-name="comment.post"]') ||
-      target.matches('button[type="submit"]') ||
-      target.closest('button[data-control-name="comment.post"]') ||
-      target.closest('button[type="submit"]') ||
-      target.textContent?.trim().toLowerCase().includes("post") ||
-      target.getAttribute("aria-label")?.toLowerCase().includes("post"))
+    currentSessionCommentIndex >= 0 &&
+    currentSessionCommentIndex < commentHistory.length
   ) {
-    // Find the associated comment field
-    const commentField = findNearbyCommentField(target);
-    if (commentField) {
-      const textContent = commentField.textContent || "";
-      if (textContent.trim().length > 15) {
-        const trimmedComment = textContent.trim();
+    commentHistory[currentSessionCommentIndex] = trimmedComment;
+  } else {
+    // Add new comment and track it for this session
+    commentHistory.push(trimmedComment);
+    currentSessionCommentIndex = commentHistory.length - 1;
+    console.log(
+      `✅ Added new comment via ${source} (${wordCount} words):`,
+      trimmedComment.substring(0, 80) + "..."
+    );
 
-        // Check if this is an AI-generated suggestion (don't capture it)
-        if (insertedSuggestions.has(trimmedComment)) {
-          // Remove from tracking set since it's been posted
-          insertedSuggestions.delete(trimmedComment);
-          return;
-        }
+    // Keep only the last 6 user comments
+    if (commentHistory.length > 6) {
+      const removedCount = commentHistory.length - 6;
+      commentHistory = commentHistory.slice(-6);
+      currentSessionCommentIndex = Math.max(
+        0,
+        currentSessionCommentIndex - removedCount
+      );
+    }
+  }
 
-        // Check if this comment is different from the last one
+  // Save to storage
+  try {
+    chrome.storage.local.set({ userCommentHistory: commentHistory });
+    console.log(
+      "💾 Saved comments to storage:",
+      commentHistory.length,
+      "comments"
+    );
+  } catch {
+    console.log("Extension context invalidated - please reload the page");
+    return;
+  }
+
+  // Show visual feedback
+  showCaptureNotification(
+    commentHistory.length,
+    wordCount,
+    currentSessionCommentIndex >= 0
+  );
+}
+
+// Real-time typing detection in comment fields
+function setupTypingDetection() {
+  // Monitor all input events on the page
+  document.addEventListener(
+    "input",
+    (event) => {
+      const target = event.target as HTMLElement;
+
+      // Check if this is a LinkedIn comment field
+      if (
+        target &&
+        (target.matches(".ql-editor") ||
+          target.matches('[contenteditable="true"]') ||
+          target.matches("textarea") ||
+          target.closest(".comments-comment-box") ||
+          target.closest(".comments-comment-texteditor"))
+      ) {
+        const currentContent =
+          target.textContent || (target as HTMLInputElement).value || "";
+        const previousContent = activeCommentFields.get(target) || "";
+
+        // Only process if content actually changed and has some length
         if (
-          commentHistory.length === 0 ||
-          commentHistory[commentHistory.length - 1] !== trimmedComment
+          currentContent !== previousContent &&
+          currentContent.trim().length > 0
         ) {
-          commentHistory.push(trimmedComment);
-          console.log("✅ Captured user comment for learning:", trimmedComment);
+          console.log(
+            "⌨️ User typing in comment field:",
+            currentContent.length,
+            "chars,",
+            countWords(currentContent),
+            "words"
+          );
 
-          // Keep only the last 6 user comments for focused learning
-          if (commentHistory.length > 6) {
-            commentHistory = commentHistory.slice(-6);
-            console.log("📝 Trimmed to last 6 comments, removed older ones");
+          // Update tracking
+          activeCommentFields.set(target, currentContent);
+
+          // Reset session if user switched to different field
+          if (currentTypingField !== target) {
+            currentSessionCommentIndex = -1;
           }
 
-          // Save to storage
-          try {
-            chrome.storage.local.set({ userCommentHistory: commentHistory });
-          } catch {
-            console.log(
-              "Extension context invalidated - please reload the page"
-            );
-            return;
+          currentTypingField = target;
+          currentTypingContent = currentContent;
+
+          // Clear existing timeout
+          if (typingTimeout) {
+            clearTimeout(typingTimeout);
           }
 
-          // Show visual feedback
-          showCaptureNotification(commentHistory.length);
+          // Only capture after user stops typing - no immediate capture to prevent duplicates
+          typingTimeout = setTimeout(() => {
+            const finalContent =
+              target.textContent || (target as HTMLInputElement).value || "";
+            if (
+              finalContent.trim().length > 0 &&
+              countWords(finalContent) >= 3
+            ) {
+              captureTypedComment(finalContent, "typing-complete");
+            }
+          }, 1500);
+        } else if (
+          currentContent.trim().length === 0 &&
+          previousContent.length > 0
+        ) {
+          // User cleared the field - reset tracking
+          currentTypingField = null;
+          currentTypingContent = "";
+          currentSessionCommentIndex = -1;
         }
       }
+    },
+    true
+  );
+
+  // Monitor focus events to track when users enter comment fields
+  document.addEventListener(
+    "focus",
+    (event) => {
+      const target = event.target as HTMLElement;
+
+      if (
+        target &&
+        (target.matches(".ql-editor") ||
+          target.matches('[contenteditable="true"]') ||
+          target.matches("textarea") ||
+          target.closest(".comments-comment-box") ||
+          target.closest(".comments-comment-texteditor"))
+      ) {
+        // Initialize tracking for this field
+        const currentContent =
+          target.textContent || (target as HTMLInputElement).value || "";
+        activeCommentFields.set(target, currentContent);
+
+        // Reset session for new field
+        if (currentTypingField !== target) {
+          currentSessionCommentIndex = -1;
+        }
+
+        currentTypingField = target;
+        currentTypingContent = currentContent;
+
+        // Get the post content for suggestions
+        const postContent = extractPostContent(target);
+        if (postContent) {
+          showCommentSuggestions(target, postContent);
+        }
+      }
+    },
+    true
+  );
+
+  // Monitor blur events to finalize comment capture
+  document.addEventListener(
+    "blur",
+    (event) => {
+      const target = event.target as HTMLElement;
+
+      if (
+        target === currentTypingField &&
+        currentTypingContent.trim().length > 0
+      ) {
+        const wordCount = countWords(currentTypingContent);
+        if (wordCount >= 3) {
+          captureTypedComment(currentTypingContent, "field-blur");
+        }
+      }
+    },
+    true
+  );
+}
+
+// Initialize typing detection when page loads
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", setupTypingDetection);
+} else {
+  setupTypingDetection();
+}
+
+// Also setup detection when new content is dynamically loaded (LinkedIn is SPA)
+const pageObserver = new MutationObserver((mutations) => {
+  let shouldReinitialize = false;
+
+  mutations.forEach((mutation) => {
+    if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as HTMLElement;
+          // Check if new comment fields were added
+          if (
+            element.querySelector(
+              '.ql-editor, [contenteditable="true"], .comments-comment-box'
+            )
+          ) {
+            shouldReinitialize = true;
+          }
+        }
+      });
     }
+  });
+
+  if (shouldReinitialize) {
+    setupTypingDetection();
   }
 });
 
-// Helper function to find nearby comment field
-function findNearbyCommentField(button: HTMLElement): HTMLElement | null {
-  // Look for comment field in the same container
-  const container =
-    button.closest(".comments-comment-box") ||
-    button.closest(".comments-comment-texteditor") ||
-    button.closest(".comment-form") ||
-    button.closest("[data-test-id]") ||
-    button.closest(".feed-shared-update-v2");
-
-  if (container) {
-    const commentField = container.querySelector(
-      '.ql-editor, [contenteditable="true"], textarea'
-    ) as HTMLElement;
-    return commentField;
-  }
-  return null;
-}
+pageObserver.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
 
 // Show a notification when a comment is captured
-function showCaptureNotification(totalComments: number) {
+function showCaptureNotification(
+  totalComments: number,
+  wordCount: number,
+  isUpdate: boolean = false
+) {
   // Remove any existing notification
   const existingNotification = document.getElementById("yousaid-notification");
   if (existingNotification) {
@@ -144,7 +309,7 @@ function showCaptureNotification(totalComments: number) {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: #10b981;
+    background: ${isUpdate ? "#f59e0b" : "#10b981"};
     color: white;
     padding: 12px 16px;
     border-radius: 8px;
@@ -158,9 +323,14 @@ function showCaptureNotification(totalComments: number) {
   `;
 
   const needMoreComments = totalComments < 6;
-  notification.textContent = needMoreComments
-    ? `YouSaid: Comment captured! (${totalComments}/6)`
-    : `YouSaid: Comment captured! (6/6) ✓ - Learning from your style!`;
+  const action = isUpdate ? "updated" : "captured";
+  const icon = isUpdate ? "🔄" : "✅";
+
+  if (needMoreComments) {
+    notification.textContent = `${icon} YouSaid: Comment ${action}! (${totalComments}/6) - ${wordCount} words`;
+  } else {
+    notification.textContent = `${icon} YouSaid: Comment ${action}! (6/6) ✓ - ${wordCount} words - Ready!`;
+  }
 
   document.body.appendChild(notification);
 
@@ -266,6 +436,12 @@ function showCommentSuggestions(
         return;
       }
 
+      console.log(
+        "🤖 Loaded comments for AI suggestions:",
+        data.userCommentHistory.length,
+        "comments"
+      );
+
       // Create suggestions container
       const suggestionsContainer = document.createElement("div");
       suggestionsContainer.id = "yousaid-suggestions";
@@ -317,8 +493,6 @@ function showCommentSuggestions(
         suggestionsContainer.style.transform = "translateY(0)";
         suggestionsContainer.style.opacity = "1";
       }, 100);
-
-      document.body.appendChild(suggestionsContainer);
 
       // Generate suggestions
       try {
@@ -425,58 +599,50 @@ function displaySuggestions(
     setTimeout(() => container.remove(), 300);
   });
 
-  // Add suggestions
   suggestions.forEach((suggestion) => {
-    if (suggestion.trim()) {
-      const suggestionElement = document.createElement("div");
-      suggestionElement.style.cssText = `
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 12px;
-        cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        font-size: 14px;
-        line-height: 1.5;
-        color: #e5e5e5;
-        position: relative;
-        overflow: hidden;
-      `;
+    const suggestionElement = document.createElement("div");
+    suggestionElement.style.cssText = `
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    `;
 
-      // Add hover gradient effect
-      suggestionElement.innerHTML = `
-        <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(96, 165, 250, 0.1), rgba(168, 85, 247, 0.1)); opacity: 0; transition: opacity 0.3s ease; border-radius: 12px;"></div>
-        <div style="position: relative; z-index: 1;">${suggestion.trim()}</div>
-      `;
+    suggestionElement.innerHTML = `
+      <div style="font-size: 14px; line-height: 1.6; color: #e4e4e7; margin-bottom: 8px;">
+        ${suggestion.trim()}
+      </div>
+      <div style="font-size: 11px; color: #71717a; text-align: right;">
+        Click to use this suggestion
+      </div>
+    `;
 
-      // Add hover effect
-      suggestionElement.addEventListener("mouseenter", () => {
-        suggestionElement.style.background = "rgba(255, 255, 255, 0.1)";
-        suggestionElement.style.borderColor = "rgba(96, 165, 250, 0.5)";
-        suggestionElement.style.transform = "translateY(-2px)";
-        const gradient = suggestionElement.querySelector("div") as HTMLElement;
-        if (gradient) gradient.style.opacity = "1";
-      });
+    // Add hover effect
+    suggestionElement.addEventListener("mouseenter", () => {
+      suggestionElement.style.background = "rgba(255, 255, 255, 0.08)";
+      suggestionElement.style.borderColor = "rgba(96, 165, 250, 0.3)";
+      suggestionElement.style.transform = "translateY(-2px)";
+    });
 
-      suggestionElement.addEventListener("mouseleave", () => {
-        suggestionElement.style.background = "rgba(255, 255, 255, 0.05)";
-        suggestionElement.style.borderColor = "rgba(255, 255, 255, 0.1)";
-        suggestionElement.style.transform = "translateY(0)";
-        const gradient = suggestionElement.querySelector("div") as HTMLElement;
-        if (gradient) gradient.style.opacity = "0";
-      });
+    suggestionElement.addEventListener("mouseleave", () => {
+      suggestionElement.style.background = "rgba(255, 255, 255, 0.05)";
+      suggestionElement.style.borderColor = "rgba(255, 255, 255, 0.1)";
+      suggestionElement.style.transform = "translateY(0)";
+    });
 
-      // Add click to insert
-      suggestionElement.addEventListener("click", () => {
-        insertSuggestion(commentField, suggestion.trim());
-        container.style.transform = "translateY(100px)";
-        container.style.opacity = "0";
-        setTimeout(() => container.remove(), 300);
-      });
+    // Add click to insert
+    suggestionElement.addEventListener("click", () => {
+      insertSuggestion(commentField, suggestion.trim());
+      container.style.transform = "translateY(100px)";
+      container.style.opacity = "0";
+      setTimeout(() => container.remove(), 300);
+    });
 
-      suggestionsList?.appendChild(suggestionElement);
-    }
+    suggestionsList?.appendChild(suggestionElement);
   });
 }
 
@@ -487,7 +653,7 @@ function insertSuggestion(commentField: HTMLElement, suggestion: string) {
     insertedSuggestions.add(suggestion.trim());
     console.log(
       "🤖 Tracking AI suggestion to prevent capture:",
-      suggestion.trim()
+      suggestion.trim().substring(0, 50) + "..."
     );
 
     // Clean up old suggestions (keep only last 20 to prevent memory issues)
@@ -533,12 +699,13 @@ function showQuickNotification(message: string) {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: #0073b1;
+    background: #3b82f6;
     color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
     font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 10000;
     opacity: 0;
     transform: translateX(100px);
@@ -554,7 +721,7 @@ function showQuickNotification(message: string) {
     notification.style.transform = "translateX(0)";
   }, 100);
 
-  // Remove after delay
+  // Animate out and remove
   setTimeout(() => {
     notification.style.opacity = "0";
     notification.style.transform = "translateX(100px)";
@@ -563,7 +730,38 @@ function showQuickNotification(message: string) {
         notification.parentNode.removeChild(notification);
       }
     }, 300);
-  }, 2500);
+  }, 3000);
 }
 
-// Content script initialization complete
+// Listen for messages from popup to reset session state
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.action === "clearSession") {
+    console.log(
+      "🧹 CLEAR SESSION MESSAGE RECEIVED - Before:",
+      commentHistory.length,
+      "comments"
+    );
+
+    // Reset ALL comment data - this is the critical fix!
+    commentHistory = [];
+
+    // Reset all session tracking variables
+    currentTypingField = null;
+    currentTypingContent = "";
+    currentSessionCommentIndex = -1;
+    activeCommentFields.clear();
+
+    // Clear any existing timeouts
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+      typingTimeout = null;
+    }
+
+    console.log(
+      "🔄 CLEAR SESSION COMPLETE - After:",
+      commentHistory.length,
+      "comments"
+    );
+    sendResponse({ success: true });
+  }
+});
