@@ -103,16 +103,32 @@ Write each comment on a separate line. Make sure to keep the writing natural and
     }
   )
     .then((response) => {
+      if (!response.ok) {
+        throw new Error(
+          `HTTP Error: ${response.status} ${response.statusText}`
+        );
+      }
       return response.json();
     })
     .then((data) => {
       if (data.error) {
         console.error("❌ API Error:", data.error);
+        // Better error handling - try different error message properties
+        let errorMessage = "Invalid API key or request";
+        if (data.error) {
+          if (typeof data.error === "string") {
+            errorMessage = data.error;
+          } else if (data.error.message) {
+            errorMessage = data.error.message;
+          } else if (data.error.details) {
+            errorMessage = data.error.details;
+          } else {
+            errorMessage = JSON.stringify(data.error);
+          }
+        }
         sendResponse({
           success: false,
-          error: `API Error: ${
-            data.error.message || "Invalid API key or request"
-          }`,
+          error: `API Error: ${errorMessage}`,
         });
         return;
       }
@@ -170,16 +186,32 @@ Return only the corrected version, nothing else.`,
     }
   )
     .then((response) => {
+      if (!response.ok) {
+        throw new Error(
+          `HTTP Error: ${response.status} ${response.statusText}`
+        );
+      }
       return response.json();
     })
     .then((data) => {
       if (data.error) {
         console.error("❌ API Error:", data.error);
+        // Better error handling - try different error message properties
+        let errorMessage = "Invalid API key or request";
+        if (data.error) {
+          if (typeof data.error === "string") {
+            errorMessage = data.error;
+          } else if (data.error.message) {
+            errorMessage = data.error.message;
+          } else if (data.error.details) {
+            errorMessage = data.error.details;
+          } else {
+            errorMessage = JSON.stringify(data.error);
+          }
+        }
         sendResponse({
           success: false,
-          error: `API Error: ${
-            data.error.message || "Invalid API key or request"
-          }`,
+          error: `API Error: ${errorMessage}`,
         });
         return;
       }

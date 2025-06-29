@@ -238,19 +238,11 @@ function Popup() {
           <div className="title-icon">🤖</div>
           <h1>YouSaid AI</h1>
         </div>
-        <button onClick={() => setShowSettings(true)} className="btn-ghost">
-          <span className="btn-icon">⚙️</span>
-        </button>
-      </div>
-
-      <div className="info-card">
-        <div className="info-icon">💡</div>
-        <div className="info-content">
-          <h3>How it works</h3>
-          <p>
-            YouSaid learns from your LinkedIn comments to suggest personalized
-            responses when you're browsing posts
-          </p>
+        <div className="header-actions">
+          <button className="info-btn">ⓘ</button>
+          <button onClick={() => setShowSettings(true)} className="btn-ghost">
+            <span className="btn-icon">⚙️</span>
+          </button>
         </div>
       </div>
 
