@@ -191,31 +191,35 @@ function Popup() {
 
   if (showSettings) {
     return (
-      <div className="popup-container p-4 w-80 bg-white shadow-md rounded-lg">
-        <h1 className="text-lg font-semibold text-gray-800 mb-4">
-          Setup Required
+      <div
+        className="bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-2xl rounded-xl border border-gray-700"
+        style={{ width: "420px", padding: "24px" }}
+      >
+        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-6">
+          🔑 Setup Required
         </h1>
-        <p className="text-sm text-gray-600 mb-4">
-          Please enter your Gemini API key to use this extension.
+        <p className="text-sm text-gray-300 mb-6 bg-white/5 p-3 rounded-lg border border-white/10">
+          🤖 Please enter your Gemini API key to enable AI-powered comment
+          suggestions.
         </p>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Gemini API Key
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-300 mb-3">
+            🗝️ Gemini API Key
           </label>
           <input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Enter your API key"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter your API key..."
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400 transition-all"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            Get your API key from{" "}
+          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+            🔗 Get your API key from{" "}
             <a
               href="https://makersuite.google.com/app/apikey"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
+              className="text-blue-400 hover:text-blue-300 underline transition-colors"
             >
               Google AI Studio
             </a>
@@ -224,9 +228,9 @@ function Popup() {
         <button
           onClick={saveApiKey}
           disabled={!apiKey.trim()}
-          className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed font-medium transition-all transform hover:scale-105 disabled:hover:scale-100"
         >
-          Save API Key
+          💾 Save API Key
         </button>
       </div>
     );
@@ -234,24 +238,36 @@ function Popup() {
 
   if (showManualInput) {
     return (
-      <div className="popup-container p-4 w-80 bg-white shadow-md rounded-lg">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-lg font-semibold text-gray-800">
-            Manual Comment Input
+      <div
+        className="bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-2xl rounded-xl border border-gray-700"
+        style={{ width: "420px", padding: "24px" }}
+      >
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            ✨ Manual Comment Input
           </h1>
           <button
             onClick={() => setShowManualInput(false)}
-            className="text-xs text-gray-500 hover:text-gray-700"
+            className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
           >
-            Back
+            ← Back
           </button>
         </div>
-        <p className="text-sm text-gray-600 mb-4">
-          Enter at least 3 sample comments to analyze your writing style:
+        <p className="text-sm text-gray-300 mb-6 bg-white/5 p-3 rounded-lg border border-white/10">
+          💭 Enter at least 3 sample comments to analyze your writing style:
         </p>
         {manualComments.map((comment, idx) => (
-          <div key={idx} className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          <div key={idx} className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+              <span
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                  idx < 3
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-600 text-gray-300"
+                }`}
+              >
+                {idx + 1}
+              </span>
               Comment {idx + 1} {idx < 3 ? "(Required)" : "(Optional)"}
             </label>
             <textarea
@@ -262,56 +278,76 @@ function Popup() {
                 setManualComments(updatedComments);
               }}
               placeholder={`Enter your sample LinkedIn comment ${idx + 1}...`}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              rows={2}
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400 text-sm transition-all"
+              rows={3}
+              style={{ resize: "vertical" }}
             />
           </div>
         ))}
         <button
           onClick={saveManualComments}
-          className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 mt-4"
+          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg hover:from-blue-600 hover:to-purple-700 font-medium transition-all transform hover:scale-105 mt-6"
         >
-          Save Comments & Analyze Style
+          🚀 Save Comments & Analyze Style
         </button>
       </div>
     );
   }
 
   return (
-    <div className="popup-container p-4 w-80 bg-white shadow-md rounded-lg">
-      <div className="flex justify-between items-center mb-2">
-        <h1 className="text-lg font-semibold text-gray-800">
-          LinkedIn Tone Assistant
+    <div
+      className="bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-2xl rounded-xl border border-gray-700"
+      style={{ width: "420px", padding: "24px" }}
+    >
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          🤖 EchoType AI
         </h1>
         <button
           onClick={() => setShowSettings(true)}
-          className="text-xs text-gray-500 hover:text-gray-700"
+          className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
         >
-          Settings
+          ⚙️ Settings
         </button>
       </div>
 
-      <p className="mt-2 text-gray-600">Current Tone: {tone || "Not set"}</p>
+      <div className="bg-white/5 p-3 rounded-lg border border-white/10 mb-6">
+        <p className="text-sm text-gray-300">
+          <span className="text-blue-400 font-medium">🎯 Current Tone:</span>{" "}
+          {tone || "Not set"}
+        </p>
+      </div>
 
       {/* Captured Comments Section */}
-      <div className="mt-4">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-md font-medium text-gray-800">
-            Captured Comments ({capturedComments.length})
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            💬 Captured Comments
+            <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+              {capturedComments.length}
+            </span>
           </h3>
-          <div className="flex gap-1">
+          <div className="flex gap-2">
             <button
-              onClick={() => setShowManualInput(true)}
-              className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+              onClick={() => {
+                // Pre-populate with existing comments
+                const existingComments = [...capturedComments];
+                while (existingComments.length < 6) {
+                  existingComments.push("");
+                }
+                setManualComments(existingComments.slice(0, 6));
+                setShowManualInput(true);
+              }}
+              className="text-xs bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 py-2 rounded-lg hover:from-emerald-600 hover:to-green-700 font-medium transition-all transform hover:scale-105"
             >
-              Add Manual
+              ✏️ Edit Manual
             </button>
             {capturedComments.length > 0 && (
               <button
                 onClick={clearAllComments}
-                className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                className="text-xs bg-gradient-to-r from-red-500 to-pink-600 text-white px-3 py-2 rounded-lg hover:from-red-600 hover:to-pink-700 font-medium transition-all transform hover:scale-105"
               >
-                Clear
+                🗑️ Clear
               </button>
             )}
           </div>

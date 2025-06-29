@@ -2,11 +2,21 @@
 let commentHistory: string[] = [];
 
 // Initialize by loading existing comments
-chrome.storage.local.get(["userCommentHistory"], (data) => {
-  if (data.userCommentHistory) {
-    commentHistory = data.userCommentHistory;
-  }
-});
+try {
+  chrome.storage.local.get(["userCommentHistory"], (data) => {
+    if (chrome.runtime.lastError) {
+      console.log(
+        "Chrome extension context invalidated - please reload the page"
+      );
+      return;
+    }
+    if (data.userCommentHistory) {
+      commentHistory = data.userCommentHistory;
+    }
+  });
+} catch {
+  console.log("Extension context invalidated - please reload the page");
+}
 
 // Listen for focus events on LinkedIn comment areas
 document.addEventListener(
@@ -58,7 +68,12 @@ document.addEventListener("input", (event) => {
         }
 
         // Save to storage
-        chrome.storage.local.set({ userCommentHistory: commentHistory });
+        try {
+          chrome.storage.local.set({ userCommentHistory: commentHistory });
+        } catch {
+          console.log("Extension context invalidated - please reload the page");
+          return;
+        }
 
         // Show visual feedback
         showCaptureNotification(commentHistory.length);
@@ -189,88 +204,142 @@ function showCommentSuggestions(
   }
 
   // Check if user has API key and comments
-  chrome.storage.local.get(
-    ["geminiApiKey", "userToneProfile", "userCommentHistory"],
-    (data) => {
-      if (!data.geminiApiKey) {
-        showQuickNotification("Please set your API key in EchoType extension");
-        return;
-      }
+  try {
+    chrome.storage.local.get(
+      ["geminiApiKey", "userToneProfile", "userCommentHistory"],
+      (data) => {
+        if (chrome.runtime.lastError) {
+          showQuickNotification(
+            "Extension context invalidated - please reload the page"
+          );
+          return;
+        }
 
-      if (!data.userCommentHistory || data.userCommentHistory.length < 3) {
-        showQuickNotification(
-          "EchoType needs 3+ sample comments to generate suggestions"
-        );
-        return;
-      }
+        if (!data.geminiApiKey) {
+          showQuickNotification(
+            "Please set your API key in EchoType extension"
+          );
+          return;
+        }
 
-      // Create suggestions container
-      const suggestionsContainer = document.createElement("div");
-      suggestionsContainer.id = "echotype-suggestions";
-      suggestionsContainer.style.cssText = `
-      position: absolute;
-      background: white;
-      border: 2px solid #0073b1;
-      border-radius: 8px;
-      padding: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 9999;
-      max-width: 400px;
+        if (!data.userCommentHistory || data.userCommentHistory.length < 3) {
+          showQuickNotification(
+            "EchoType needs 3+ sample comments to generate suggestions"
+          );
+          return;
+        }
+
+        // Create suggestions container
+        const suggestionsContainer = document.createElement("div");
+        suggestionsContainer.id = "echotype-suggestions";
+        suggestionsContainer.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+      border: 1px solid #404040;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      z-index: 10000;
+      max-width: 380px;
+      width: 380px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: white;
+      backdrop-filter: blur(10px);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     `;
 
-      // Position the container near the comment field
-      const rect = commentField.getBoundingClientRect();
-      suggestionsContainer.style.left = `${rect.left}px`;
-      suggestionsContainer.style.top = `${rect.bottom + 5}px`;
-
-      // Add loading state
-      suggestionsContainer.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px; color: #0073b1; font-weight: 500; margin-bottom: 8px;">
-        <div style="width: 16px; height: 16px; border: 2px solid #0073b1; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-        EchoType generating suggestions...
+        // Add loading state
+        suggestionsContainer.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 12px; color: #60a5fa; font-weight: 600; margin-bottom: 16px; font-size: 16px;">
+        <div style="width: 20px; height: 20px; border: 2px solid #60a5fa; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <span style="background: linear-gradient(135deg, #60a5fa, #a855f7); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+          EchoType AI
+        </span>
       </div>
-      <div style="font-size: 12px; color: #666; max-height: 60px; overflow: hidden;">
-        Post: ${postContent.substring(0, 150)}${
-        postContent.length > 150 ? "..." : ""
-      }
+      <div style="font-size: 13px; color: #a1a1aa; line-height: 1.5; background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 8px; margin-bottom: 16px; max-height: 60px; overflow: hidden;">
+        📝 ${postContent.substring(0, 120)}${
+          postContent.length > 120 ? "..." : ""
+        }
+      </div>
+      <div style="text-align: center; color: #71717a; font-size: 12px;">
+        Generating personalized suggestions...
       </div>
       <style>
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
       </style>
     `;
 
-      document.body.appendChild(suggestionsContainer);
+        document.body.appendChild(suggestionsContainer);
 
-      // Generate suggestions
-      chrome.runtime.sendMessage(
-        {
-          type: "generate_comments",
-          post: postContent,
-          tone: data.userToneProfile || "professional",
-        },
-        (response) => {
-          if (response.success && response.comments) {
-            displaySuggestions(
-              suggestionsContainer,
-              response.comments,
-              commentField,
-              postContent
-            );
-          } else {
-            suggestionsContainer.innerHTML = `
-          <div style="color: #d32f2f; font-weight: 500; margin-bottom: 8px;">
+        // Animate in
+        setTimeout(() => {
+          suggestionsContainer.style.transform = "translateY(0)";
+          suggestionsContainer.style.opacity = "1";
+        }, 100);
+
+        document.body.appendChild(suggestionsContainer);
+
+        // Generate suggestions
+        try {
+          chrome.runtime.sendMessage(
+            {
+              type: "generate_comments",
+              post: postContent,
+              tone: data.userToneProfile || "professional",
+            },
+            (response) => {
+              if (chrome.runtime.lastError) {
+                suggestionsContainer.innerHTML = `
+                <div style="color: #d32f2f; font-weight: 500; margin-bottom: 8px;">
+                  ❌ Extension context invalidated
+                </div>
+                <div style="font-size: 12px; color: #666;">
+                  Please reload the page and try again
+                </div>
+              `;
+                return;
+              }
+
+              if (response.success && response.comments) {
+                displaySuggestions(
+                  suggestionsContainer,
+                  response.comments,
+                  commentField,
+                  postContent
+                );
+              } else {
+                suggestionsContainer.innerHTML = `
+          <div style="color: #f87171; font-weight: 600; margin-bottom: 12px; font-size: 16px;">
             ❌ Error generating suggestions
           </div>
-          <div style="font-size: 12px; color: #666;">
+          <div style="font-size: 13px; color: #a1a1aa; background: rgba(248, 113, 113, 0.1); padding: 12px; border-radius: 8px;">
             ${response.error || "Unknown error occurred"}
           </div>
         `;
-          }
+              }
+            }
+          );
+        } catch {
+          suggestionsContainer.innerHTML = `
+           <div style="color: #d32f2f; font-weight: 500; margin-bottom: 8px;">
+             ❌ Extension context invalidated
+           </div>
+           <div style="font-size: 12px; color: #666;">
+             Please reload the page and try again
+           </div>
+         `;
         }
-      );
-    }
-  );
+      }
+    );
+  } catch {
+    showQuickNotification(
+      "Extension context invalidated - please reload the page"
+    );
+  }
 }
 
 // Display generated suggestions
@@ -281,15 +350,30 @@ function displaySuggestions(
   postContent: string
 ) {
   container.innerHTML = `
-    <div style="display: flex; justify-between; align-items: center; margin-bottom: 12px;">
-      <div style="color: #0073b1; font-weight: 600; font-size: 14px;">
-        🤖 EchoType Suggestions
+    <div style="display: flex; justify-between; align-items: center; margin-bottom: 16px;">
+      <div style="color: #60a5fa; font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+        <span style="background: linear-gradient(135deg, #60a5fa, #a855f7); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+          🤖 EchoType AI
+        </span>
       </div>
-      <button id="echotype-close" style="background: none; border: none; color: #666; cursor: pointer; font-size: 18px;">×</button>
+      <button id="echotype-close" style="
+        background: rgba(255, 255, 255, 0.1); 
+        border: 1px solid rgba(255, 255, 255, 0.2); 
+        color: #a1a1aa; 
+        cursor: pointer; 
+        width: 32px; 
+        height: 32px; 
+        border-radius: 50%; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        font-size: 16px;
+        transition: all 0.2s ease;
+      " onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'; this.style.color='white';" onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'; this.style.color='#a1a1aa';">×</button>
     </div>
-    <div style="font-size: 11px; color: #666; margin-bottom: 8px; max-height: 40px; overflow: hidden;">
-      Post: ${postContent.substring(0, 120)}${
-    postContent.length > 120 ? "..." : ""
+    <div style="font-size: 12px; color: #71717a; margin-bottom: 16px; background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 8px; max-height: 40px; overflow: hidden;">
+      📝 ${postContent.substring(0, 100)}${
+    postContent.length > 100 ? "..." : ""
   }
     </div>
     <div id="suggestions-list"></div>
@@ -300,7 +384,9 @@ function displaySuggestions(
 
   // Add close functionality
   closeButton?.addEventListener("click", () => {
-    container.remove();
+    container.style.transform = "translateY(100px)";
+    container.style.opacity = "0";
+    setTimeout(() => container.remove(), 300);
   });
 
   // Add suggestions
@@ -308,34 +394,49 @@ function displaySuggestions(
     if (suggestion.trim()) {
       const suggestionElement = document.createElement("div");
       suggestionElement.style.cssText = `
-        background: #f8f9fa;
-        border: 1px solid #e0e0e0;
-        border-radius: 6px;
-        padding: 8px 12px;
-        margin-bottom: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
         cursor: pointer;
-        transition: all 0.2s;
-        font-size: 13px;
-        line-height: 1.4;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        font-size: 14px;
+        line-height: 1.5;
+        color: #e5e5e5;
+        position: relative;
+        overflow: hidden;
       `;
 
-      suggestionElement.textContent = suggestion.trim();
+      // Add hover gradient effect
+      suggestionElement.innerHTML = `
+        <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(96, 165, 250, 0.1), rgba(168, 85, 247, 0.1)); opacity: 0; transition: opacity 0.3s ease; border-radius: 12px;"></div>
+        <div style="position: relative; z-index: 1;">${suggestion.trim()}</div>
+      `;
 
       // Add hover effect
       suggestionElement.addEventListener("mouseenter", () => {
-        suggestionElement.style.background = "#e3f2fd";
-        suggestionElement.style.borderColor = "#0073b1";
+        suggestionElement.style.background = "rgba(255, 255, 255, 0.1)";
+        suggestionElement.style.borderColor = "rgba(96, 165, 250, 0.5)";
+        suggestionElement.style.transform = "translateY(-2px)";
+        const gradient = suggestionElement.querySelector("div") as HTMLElement;
+        if (gradient) gradient.style.opacity = "1";
       });
 
       suggestionElement.addEventListener("mouseleave", () => {
-        suggestionElement.style.background = "#f8f9fa";
-        suggestionElement.style.borderColor = "#e0e0e0";
+        suggestionElement.style.background = "rgba(255, 255, 255, 0.05)";
+        suggestionElement.style.borderColor = "rgba(255, 255, 255, 0.1)";
+        suggestionElement.style.transform = "translateY(0)";
+        const gradient = suggestionElement.querySelector("div") as HTMLElement;
+        if (gradient) gradient.style.opacity = "0";
       });
 
       // Add click to insert
       suggestionElement.addEventListener("click", () => {
         insertSuggestion(commentField, suggestion.trim());
-        container.remove();
+        container.style.transform = "translateY(100px)";
+        container.style.opacity = "0";
+        setTimeout(() => container.remove(), 300);
       });
 
       suggestionsList?.appendChild(suggestionElement);
