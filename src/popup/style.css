@@ -65,7 +65,7 @@ html, body {
 
 /* Modern Popup Container */
 .modern-popup {
-  width: 620px;
+  min-width: 600px;
   max-width: 100vw;
   min-height: 650px;
   background: linear-gradient(145deg, var(--dark-primary) 0%, var(--dark-secondary) 100%);
@@ -101,6 +101,7 @@ html, body {
 .header-title {
   display: flex;
   align-items: center;
+  white-space: nowrap;
   gap: 12px;
 }
 
