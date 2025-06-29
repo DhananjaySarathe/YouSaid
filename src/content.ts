@@ -11,6 +11,9 @@ let currentTypingField: HTMLElement | null = null;
 let currentTypingContent = "";
 let currentSessionCommentIndex = -1; // Index of comment being updated in this session
 
+// Prevent multiple modal instances
+let isShowingSuggestions = false;
+
 // Initialize by loading existing comments
 try {
   chrome.storage.local.get(["userCommentHistory"], (data) => {
@@ -159,6 +162,19 @@ function setupTypingDetection() {
           // Reset session if user switched to different field
           if (currentTypingField !== target) {
             currentSessionCommentIndex = -1;
+
+            // Close any existing suggestions modal when switching fields
+            const existingSuggestions = document.getElementById(
+              "yousaid-suggestions"
+            );
+            if (existingSuggestions) {
+              existingSuggestions.style.transform = "translateY(100px)";
+              existingSuggestions.style.opacity = "0";
+              setTimeout(() => {
+                existingSuggestions.remove();
+                isShowingSuggestions = false;
+              }, 300);
+            }
           }
 
           currentTypingField = target;
@@ -216,6 +232,19 @@ function setupTypingDetection() {
         // Reset session for new field
         if (currentTypingField !== target) {
           currentSessionCommentIndex = -1;
+
+          // Close any existing suggestions modal when switching fields
+          const existingSuggestions = document.getElementById(
+            "yousaid-suggestions"
+          );
+          if (existingSuggestions) {
+            existingSuggestions.style.transform = "translateY(100px)";
+            existingSuggestions.style.opacity = "0";
+            setTimeout(() => {
+              existingSuggestions.remove();
+              isShowingSuggestions = false;
+            }, 300);
+          }
         }
 
         currentTypingField = target;
@@ -408,11 +437,20 @@ function showCommentSuggestions(
   commentField: HTMLElement,
   postContent: string
 ) {
+  // Prevent multiple modal instances
+  if (isShowingSuggestions) {
+    console.log("🚫 Suggestions already showing, ignoring duplicate request");
+    return;
+  }
+
   // Remove any existing suggestions
   const existingSuggestions = document.getElementById("yousaid-suggestions");
   if (existingSuggestions) {
     existingSuggestions.remove();
   }
+
+  // Set flag to prevent duplicates
+  isShowingSuggestions = true;
 
   // Check if user has API key and comments
   try {
@@ -421,11 +459,13 @@ function showCommentSuggestions(
         showQuickNotification(
           "Extension context invalidated - please reload the page"
         );
+        isShowingSuggestions = false;
         return;
       }
 
       if (!data.geminiApiKey) {
         showQuickNotification("Please set your API key in YouSaid extension");
+        isShowingSuggestions = false;
         return;
       }
 
@@ -433,6 +473,7 @@ function showCommentSuggestions(
         showQuickNotification(
           "YouSaid needs 3+ sample comments to generate suggestions"
         );
+        isShowingSuggestions = false;
         return;
       }
 
@@ -549,6 +590,7 @@ function showCommentSuggestions(
     showQuickNotification(
       "Extension context invalidated - please reload the page"
     );
+    isShowingSuggestions = false;
   }
 }
 
@@ -596,7 +638,10 @@ function displaySuggestions(
   closeButton?.addEventListener("click", () => {
     container.style.transform = "translateY(100px)";
     container.style.opacity = "0";
-    setTimeout(() => container.remove(), 300);
+    setTimeout(() => {
+      container.remove();
+      isShowingSuggestions = false; // Reset flag when modal is closed
+    }, 300);
   });
 
   suggestions.forEach((suggestion) => {
@@ -639,7 +684,10 @@ function displaySuggestions(
       insertSuggestion(commentField, suggestion.trim());
       container.style.transform = "translateY(100px)";
       container.style.opacity = "0";
-      setTimeout(() => container.remove(), 300);
+      setTimeout(() => {
+        container.remove();
+        isShowingSuggestions = false; // Reset flag when suggestion is used
+      }, 300);
     });
 
     suggestionsList?.appendChild(suggestionElement);
