@@ -272,15 +272,18 @@ function Popup() {
                 setManualComments(existingComments.slice(0, 6));
                 setShowManualInput(true);
               }}
-              className="btn-secondary"
+              className="icon-btn"
+              title="Edit comments manually"
             >
-              <span className="btn-icon">✏️</span>
-              Edit Manual
+              ✏️
             </button>
             {capturedComments.length > 0 && (
-              <button onClick={clearAllComments} className="btn-danger">
-                <span className="btn-icon">🗑️</span>
-                Clear
+              <button
+                onClick={clearAllComments}
+                className="icon-btn danger"
+                title="Clear all comments"
+              >
+                🗑️
               </button>
             )}
           </div>
