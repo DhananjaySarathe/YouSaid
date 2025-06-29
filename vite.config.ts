@@ -15,8 +15,14 @@ export default defineConfig({
       output: {
         entryFileNames: "[name].js",
         chunkFileNames: "[name].js",
-        assetFileNames: "[name].[ext]",
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name?.includes("index.html")) {
+            return "popup.html";
+          }
+          return "[name].[ext]";
+        },
       },
     },
   },
+  publicDir: "public",
 });

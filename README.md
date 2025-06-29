@@ -67,3 +67,4 @@ export default tseslint.config([
   },
 ])
 ```
+To Build : npm run build:extension
