@@ -130,6 +130,11 @@ function setupTypingDetection() {
     (event) => {
       const target = event.target as HTMLElement;
 
+      // Ignore input events from elements inside the suggestions modal
+      if (target.closest("#yousaid-suggestions")) {
+        return;
+      }
+
       // Check if this is a LinkedIn comment field
       if (
         target &&
@@ -216,6 +221,11 @@ function setupTypingDetection() {
     (event) => {
       const target = event.target as HTMLElement;
 
+      // Ignore focus events from elements inside the suggestions modal
+      if (target.closest("#yousaid-suggestions")) {
+        return;
+      }
+
       if (
         target &&
         (target.matches(".ql-editor") ||
@@ -265,6 +275,11 @@ function setupTypingDetection() {
     "blur",
     (event) => {
       const target = event.target as HTMLElement;
+
+      // Ignore blur events from elements inside the suggestions modal
+      if (target.closest("#yousaid-suggestions")) {
+        return;
+      }
 
       if (
         target === currentTypingField &&
@@ -496,8 +511,10 @@ function showCommentSuggestions(
       padding: 20px;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
       z-index: 10000;
-      max-width: 380px;
-      width: 380px;
+      max-width: 420px;
+      width: 420px;
+      max-height: 80vh;
+      overflow-y: auto;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       color: white;
       backdrop-filter: blur(10px);
@@ -514,7 +531,7 @@ function showCommentSuggestions(
           YouSaid AI
         </span>
       </div>
-      <div style="font-size: 13px; color: #a1a1aa; line-height: 1.5; background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 8px; margin-bottom: 16px; max-height: 60px; overflow: hidden;">
+      <div style="font-size: 13px; color: #a1a1aa; line-height: 1.5; background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 8px; margin-bottom: 16px;min-height: 80px; max-height: 100px; overflow: hidden;">
         📝 ${postContent.substring(0, 120)}${
         postContent.length > 120 ? "..." : ""
       }
@@ -658,11 +675,8 @@ function displaySuggestions(
     `;
 
     suggestionElement.innerHTML = `
-      <div style="font-size: 14px; line-height: 1.6; color: #e4e4e7; margin-bottom: 8px;">
+      <div style="font-size: 14px; line-height: 1.6; color: #e4e4e7;">
         ${suggestion.trim()}
-      </div>
-      <div style="font-size: 11px; color: #71717a; text-align: right;">
-        Click to use this suggestion
       </div>
     `;
 
@@ -691,6 +705,207 @@ function displaySuggestions(
     });
 
     suggestionsList?.appendChild(suggestionElement);
+  });
+
+  // Add manual comment input section
+  const manualInputSection = document.createElement("div");
+  manualInputSection.style.cssText = `
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  `;
+
+  manualInputSection.innerHTML = `
+    <div style="color: #a855f7; font-weight: 600; margin-bottom: 12px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+      <span>✍️</span>
+      <span>Write Your Own Comment</span>
+    </div>
+    <textarea id="manual-comment-input" placeholder="Enter your own comment here..." style="
+      width: 100%;
+      min-height: 80px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+      color: #e4e4e7;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      margin-bottom: 12px;
+      box-sizing: border-box;
+    " rows="3"></textarea>
+    <div id="manual-comment-actions" style="display: flex; gap: 8px; align-items: center;">
+      <button id="correct-grammar-btn" style="
+        background: linear-gradient(135deg, #8b5cf6, #a855f7);
+        border: none;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      ">
+        <span>📝</span>
+        <span>Correct Grammar</span>
+      </button>
+      <button id="use-manual-comment-btn" style="
+        background: linear-gradient(135deg, #10b981, #059669);
+        border: none;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      ">
+        <span>✅</span>
+        <span>Use This Comment</span>
+      </button>
+    </div>
+    <div id="grammar-correction-section" style="display: none; margin-top: 16px; padding: 16px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px;">
+      <div style="color: #a855f7; font-weight: 600; margin-bottom: 8px; font-size: 13px;">📝 Grammar Corrected Version:</div>
+      <div id="corrected-comment" style="
+        background: rgba(255, 255, 255, 0.05);
+        padding: 12px;
+        border-radius: 6px;
+        color: #e4e4e7;
+        font-size: 14px;
+        line-height: 1.5;
+        margin-bottom: 12px;
+        min-height: 40px;
+      "></div>
+      <div style="display: flex; gap: 8px;">
+        <button id="accept-corrected-btn" style="
+          background: linear-gradient(135deg, #10b981, #059669);
+          border: none;
+          color: white;
+          padding: 8px 16px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        ">✅ Add Corrected Comment</button>
+        <button id="discard-corrected-btn" style="
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: #a1a1aa;
+          padding: 8px 16px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        ">❌ Discard</button>
+      </div>
+    </div>
+  `;
+
+  suggestionsList?.appendChild(manualInputSection);
+
+  // Add event listeners for manual input functionality
+  const manualCommentInput = manualInputSection.querySelector(
+    "#manual-comment-input"
+  ) as HTMLTextAreaElement;
+  const correctGrammarBtn = manualInputSection.querySelector(
+    "#correct-grammar-btn"
+  ) as HTMLButtonElement;
+  const useManualCommentBtn = manualInputSection.querySelector(
+    "#use-manual-comment-btn"
+  ) as HTMLButtonElement;
+  const grammarCorrectionSection = manualInputSection.querySelector(
+    "#grammar-correction-section"
+  ) as HTMLElement;
+  const correctedCommentDiv = manualInputSection.querySelector(
+    "#corrected-comment"
+  ) as HTMLElement;
+  const acceptCorrectedBtn = manualInputSection.querySelector(
+    "#accept-corrected-btn"
+  ) as HTMLButtonElement;
+  const discardCorrectedBtn = manualInputSection.querySelector(
+    "#discard-corrected-btn"
+  ) as HTMLButtonElement;
+
+  // Correct Grammar functionality
+  correctGrammarBtn?.addEventListener("click", async () => {
+    const userComment = manualCommentInput?.value?.trim();
+    if (!userComment) {
+      showQuickNotification("Please enter a comment first");
+      return;
+    }
+
+    correctGrammarBtn.innerHTML = `
+      <div style="width: 12px; height: 12px; border: 2px solid white; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <span>Correcting...</span>
+    `;
+    correctGrammarBtn.disabled = true;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "correct_grammar",
+        comment: userComment,
+      });
+
+      if (response.success && response.correctedComment) {
+        correctedCommentDiv.textContent = response.correctedComment;
+        grammarCorrectionSection.style.display = "block";
+      } else {
+        showQuickNotification(
+          "❌ Failed to correct grammar: " + (response.error || "Unknown error")
+        );
+      }
+    } catch (error) {
+      console.log("Error correcting grammar:", error);
+      showQuickNotification("❌ Failed to correct grammar");
+    } finally {
+      correctGrammarBtn.innerHTML = `<span>📝</span><span>Correct Grammar</span>`;
+      correctGrammarBtn.disabled = false;
+    }
+  });
+
+  // Use manual comment directly
+  useManualCommentBtn?.addEventListener("click", () => {
+    const userComment = manualCommentInput?.value?.trim();
+    if (!userComment) {
+      showQuickNotification("Please enter a comment first");
+      return;
+    }
+
+    insertSuggestion(commentField, userComment);
+    container.style.transform = "translateY(100px)";
+    container.style.opacity = "0";
+    setTimeout(() => {
+      container.remove();
+      isShowingSuggestions = false;
+    }, 300);
+  });
+
+  // Accept corrected comment
+  acceptCorrectedBtn?.addEventListener("click", () => {
+    const correctedComment = correctedCommentDiv?.textContent?.trim();
+    if (correctedComment) {
+      insertSuggestion(commentField, correctedComment);
+      container.style.transform = "translateY(100px)";
+      container.style.opacity = "0";
+      setTimeout(() => {
+        container.remove();
+        isShowingSuggestions = false;
+      }, 300);
+    }
+  });
+
+  // Discard corrected comment
+  discardCorrectedBtn?.addEventListener("click", () => {
+    grammarCorrectionSection.style.display = "none";
+    correctedCommentDiv.textContent = "";
   });
 }
 
