@@ -28,6 +28,9 @@ chrome.runtime.onMessage.addListener(
           return;
         }
         console.log("🔑 API key found, proceeding with API call");
+        console.log(
+          `💬 Using ${message.previousComments.length}/6 user comments for generation`
+        );
         callGeminiWithUserKey(message, result.geminiApiKey, sendResponse);
       });
       return true;

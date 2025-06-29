@@ -1,5 +1,14 @@
 // Content script for LinkedIn comment tracking
 let commentHistory: string[] = [];
+const insertedSuggestions: Set<string> = new Set(); // Track AI-generated suggestions
+
+// Clean up old suggestions every 10 minutes to prevent memory leaks
+setInterval(() => {
+  if (insertedSuggestions.size > 0) {
+    console.log("🧹 Cleaning up old AI suggestions from memory");
+    insertedSuggestions.clear();
+  }
+}, 10 * 60 * 1000); // 10 minutes
 
 // Initialize by loading existing comments
 try {
@@ -60,16 +69,27 @@ document.addEventListener("click", (event) => {
     if (commentField) {
       const textContent = commentField.textContent || "";
       if (textContent.trim().length > 15) {
+        const trimmedComment = textContent.trim();
+
+        // Check if this is an AI-generated suggestion (don't capture it)
+        if (insertedSuggestions.has(trimmedComment)) {
+          // Remove from tracking set since it's been posted
+          insertedSuggestions.delete(trimmedComment);
+          return;
+        }
+
         // Check if this comment is different from the last one
         if (
           commentHistory.length === 0 ||
-          commentHistory[commentHistory.length - 1] !== textContent.trim()
+          commentHistory[commentHistory.length - 1] !== trimmedComment
         ) {
-          commentHistory.push(textContent.trim());
+          commentHistory.push(trimmedComment);
+          console.log("✅ Captured user comment for learning:", trimmedComment);
 
-          // Keep only the last 10 comments
-          if (commentHistory.length > 10) {
-            commentHistory = commentHistory.slice(-10);
+          // Keep only the last 6 user comments for focused learning
+          if (commentHistory.length > 6) {
+            commentHistory = commentHistory.slice(-6);
+            console.log("📝 Trimmed to last 6 comments, removed older ones");
           }
 
           // Save to storage
@@ -140,7 +160,7 @@ function showCaptureNotification(totalComments: number) {
   const needMoreComments = totalComments < 6;
   notification.textContent = needMoreComments
     ? `YouSaid: Comment captured! (${totalComments}/6)`
-    : `YouSaid: Comment captured! (${totalComments}) ✓`;
+    : `YouSaid: Comment captured! (6/6) ✓ - Learning from your style!`;
 
   document.body.appendChild(notification);
 
@@ -463,6 +483,21 @@ function displaySuggestions(
 // Insert suggestion into comment field
 function insertSuggestion(commentField: HTMLElement, suggestion: string) {
   try {
+    // Track this suggestion so we don't capture it for learning
+    insertedSuggestions.add(suggestion.trim());
+    console.log(
+      "🤖 Tracking AI suggestion to prevent capture:",
+      suggestion.trim()
+    );
+
+    // Clean up old suggestions (keep only last 20 to prevent memory issues)
+    if (insertedSuggestions.size > 20) {
+      const suggestionsArray = Array.from(insertedSuggestions);
+      insertedSuggestions.clear();
+      // Keep the last 10
+      suggestionsArray.slice(-10).forEach((s) => insertedSuggestions.add(s));
+    }
+
     if (commentField.contentEditable === "true") {
       // For contenteditable elements
       commentField.textContent = suggestion;
@@ -484,7 +519,7 @@ function insertSuggestion(commentField: HTMLElement, suggestion: string) {
       commentField.dispatchEvent(inputEvent);
     }
 
-    showQuickNotification("✅ Comment suggestion inserted!");
+    showQuickNotification("✅ Comment added!");
   } catch (error) {
     console.log("Error inserting suggestion:", error);
     showQuickNotification("❌ Failed to insert suggestion");
