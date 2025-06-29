@@ -907,14 +907,15 @@ html, body {
   }
   
   .section-header {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     gap: 12px;
   }
   
   .section-actions {
-    width: 100%;
-    justify-content: flex-start;
+    flex-shrink: 0;
+    justify-content: flex-end;
   }
   
   .comments-container,
