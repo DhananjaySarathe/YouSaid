@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "LinkedIn Tone Assistant",
+    "name": "YouSaid - LinkedIn Comment Assistant",
     "version": "1.0",
-    "description": "Learn and suggest LinkedIn comment tones based on your style.",
+    "description": "Learn your commenting style and suggest personalized LinkedIn comments with AI.",
     "permissions": [
       "activeTab",
       "storage",

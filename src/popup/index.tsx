@@ -25,6 +25,7 @@ function Popup() {
     "",
   ]);
   const [editingIndex, setEditingIndex] = useState<number>(-1);
+  const [hoveredComment, setHoveredComment] = useState<number>(-1);
 
   useEffect(() => {
     // Retrieve the user's tone, comment history, and API key from storage
@@ -189,48 +190,62 @@ function Popup() {
     }
   };
 
+  const getToneIcon = (toneText: string) => {
+    if (toneText.includes("casual")) return "😊";
+    if (toneText.includes("professional")) return "💼";
+    return "⚖️";
+  };
+
   if (showSettings) {
     return (
-      <div
-        className="bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-2xl rounded-xl border border-gray-700"
-        style={{ width: "420px", padding: "24px" }}
-      >
-        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-6">
-          🔑 Setup Required
-        </h1>
-        <p className="text-sm text-gray-300 mb-6 bg-white/5 p-3 rounded-lg border border-white/10">
-          🤖 Please enter your Gemini API key to enable AI-powered comment
-          suggestions.
-        </p>
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-300 mb-3">
-            🗝️ Gemini API Key
+      <div className="modern-popup">
+        <div className="popup-header">
+          <div className="header-title">
+            <div className="title-icon">🔐</div>
+            <h1>API Setup</h1>
+          </div>
+        </div>
+
+        <div className="info-card">
+          <div className="info-icon">🤖</div>
+          <div className="info-content">
+            <h3>Gemini API Required</h3>
+            <p>Enter your API key to enable AI-powered comment suggestions</p>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">
+            <span className="label-icon">🗝️</span>
+            API Key
           </label>
           <input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Enter your API key..."
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400 transition-all"
+            placeholder="Enter your Gemini API key..."
+            className="form-input"
           />
-          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-            🔗 Get your API key from{" "}
+          <div className="form-help">
+            <span>Get your key from </span>
             <a
               href="https://makersuite.google.com/app/apikey"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 underline transition-colors"
+              className="help-link"
             >
               Google AI Studio
             </a>
-          </p>
+          </div>
         </div>
+
         <button
           onClick={saveApiKey}
           disabled={!apiKey.trim()}
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed font-medium transition-all transform hover:scale-105 disabled:hover:scale-100"
+          className="btn-primary full-width"
         >
-          💾 Save API Key
+          <span className="btn-icon">💾</span>
+          Save API Key
         </button>
       </div>
     );
@@ -238,99 +253,102 @@ function Popup() {
 
   if (showManualInput) {
     return (
-      <div
-        className="bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-2xl rounded-xl border border-gray-700"
-        style={{ width: "420px", padding: "24px" }}
-      >
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-            ✨ Manual Comment Input
-          </h1>
+      <div className="modern-popup">
+        <div className="popup-header">
+          <div className="header-title">
+            <div className="title-icon">✨</div>
+            <h1>Manual Input</h1>
+          </div>
           <button
             onClick={() => setShowManualInput(false)}
-            className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+            className="btn-ghost"
           >
-            ← Back
+            <span className="btn-icon">←</span>
+            Back
           </button>
         </div>
-        <p className="text-sm text-gray-300 mb-6 bg-white/5 p-3 rounded-lg border border-white/10">
-          💭 Enter at least 3 sample comments to analyze your writing style:
-        </p>
-        {manualComments.map((comment, idx) => (
-          <div key={idx} className="mb-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-              <span
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                  idx < 3
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-600 text-gray-300"
-                }`}
-              >
-                {idx + 1}
-              </span>
-              Comment {idx + 1} {idx < 3 ? "(Required)" : "(Optional)"}
-            </label>
-            <textarea
-              value={comment}
-              onChange={(e) => {
-                const updatedComments = [...manualComments];
-                updatedComments[idx] = e.target.value;
-                setManualComments(updatedComments);
-              }}
-              placeholder={`Enter your sample LinkedIn comment ${idx + 1}...`}
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400 text-sm transition-all"
-              rows={3}
-              style={{ resize: "vertical" }}
-            />
+
+        <div className="info-card">
+          <div className="info-icon">💭</div>
+          <div className="info-content">
+            <h3>Comment Analysis</h3>
+            <p>
+              Enter at least 3 sample comments to analyze your writing style
+            </p>
           </div>
-        ))}
-        <button
-          onClick={saveManualComments}
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg hover:from-blue-600 hover:to-purple-700 font-medium transition-all transform hover:scale-105 mt-6"
-        >
-          🚀 Save Comments & Analyze Style
+        </div>
+
+        <div className="comments-input-grid">
+          {manualComments.map((comment, idx) => (
+            <div key={idx} className="comment-input-group">
+              <label className="comment-label">
+                <span
+                  className={`comment-number ${
+                    idx < 3 ? "required" : "optional"
+                  }`}
+                >
+                  {idx + 1}
+                </span>
+                Comment {idx + 1}
+                {idx < 3 && <span className="required-badge">Required</span>}
+              </label>
+              <textarea
+                value={comment}
+                onChange={(e) => {
+                  const updatedComments = [...manualComments];
+                  updatedComments[idx] = e.target.value;
+                  setManualComments(updatedComments);
+                }}
+                placeholder={`Enter your sample LinkedIn comment ${idx + 1}...`}
+                className="comment-textarea"
+                rows={3}
+              />
+            </div>
+          ))}
+        </div>
+
+        <button onClick={saveManualComments} className="btn-primary full-width">
+          <span className="btn-icon">🚀</span>
+          Save Comments & Analyze Style
         </button>
       </div>
     );
   }
 
   return (
-    <div
-      className="bg-gradient-to-br from-gray-900 to-gray-800 text-white shadow-2xl rounded-xl border border-gray-700"
-      style={{ width: "420px", padding: "24px" }}
-    >
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-          🤖 EchoType AI
-        </h1>
-        <button
-          onClick={() => setShowSettings(true)}
-          className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
-        >
-          ⚙️ Settings
+    <div className="modern-popup">
+      <div className="popup-header">
+        <div className="header-title">
+          <div className="title-icon">🤖</div>
+          <h1>YouSaid AI</h1>
+        </div>
+        <button onClick={() => setShowSettings(true)} className="btn-ghost">
+          <span className="btn-icon">⚙️</span>
         </button>
       </div>
 
-      <div className="bg-white/5 p-3 rounded-lg border border-white/10 mb-6">
-        <p className="text-sm text-gray-300">
-          <span className="text-blue-400 font-medium">🎯 Current Tone:</span>{" "}
-          {tone || "Not set"}
-        </p>
+      {/* Tone Display */}
+      <div className="tone-card">
+        <div className="tone-icon">{getToneIcon(tone)}</div>
+        <div className="tone-content">
+          <span className="tone-label">Current Tone</span>
+          <span className={`tone-value ${tone ? "" : "not-set"}`}>
+            {tone || "Not analyzed yet"}
+          </span>
+        </div>
       </div>
 
       {/* Captured Comments Section */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            💬 Captured Comments
-            <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-              {capturedComments.length}
-            </span>
-          </h3>
-          <div className="flex gap-2">
+      <div className="section">
+        <div className="section-header">
+          <div className="section-title">
+            <span className="section-icon">💬</span>
+            <h2>Captured Comments</h2>
+            <div className="comment-badge">{capturedComments.length}</div>
+          </div>
+          <div className="section-actions">
             <button
               onClick={() => {
-                // Pre-populate with existing comments
                 const existingComments = [...capturedComments];
                 while (existingComments.length < 6) {
                   existingComments.push("");
@@ -338,31 +356,35 @@ function Popup() {
                 setManualComments(existingComments.slice(0, 6));
                 setShowManualInput(true);
               }}
-              className="text-xs bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 py-2 rounded-lg hover:from-emerald-600 hover:to-green-700 font-medium transition-all transform hover:scale-105"
+              className="btn-secondary"
             >
-              ✏️ Edit Manual
+              <span className="btn-icon">✏️</span>
+              Edit Manual
             </button>
             {capturedComments.length > 0 && (
-              <button
-                onClick={clearAllComments}
-                className="text-xs bg-gradient-to-r from-red-500 to-pink-600 text-white px-3 py-2 rounded-lg hover:from-red-600 hover:to-pink-700 font-medium transition-all transform hover:scale-105"
-              >
-                🗑️ Clear
+              <button onClick={clearAllComments} className="btn-danger">
+                <span className="btn-icon">🗑️</span>
+                Clear
               </button>
             )}
           </div>
         </div>
 
-        {capturedComments.length > 0 ? (
-          <div className="max-h-32 overflow-y-auto mb-3">
-            {capturedComments.map((comment, idx) => (
-              <div key={idx} className="mb-2 p-2 bg-gray-100 rounded text-sm">
+        <div className="comments-container">
+          {capturedComments.length > 0 ? (
+            capturedComments.map((comment, idx) => (
+              <div
+                key={idx}
+                className="comment-item"
+                onMouseEnter={() => setHoveredComment(idx)}
+                onMouseLeave={() => setHoveredComment(-1)}
+              >
                 {editingIndex === idx ? (
-                  <div>
+                  <div className="comment-edit">
                     <textarea
                       defaultValue={comment}
-                      className="w-full p-1 border rounded text-xs"
-                      rows={2}
+                      className="edit-textarea"
+                      rows={3}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && e.ctrlKey) {
                           editCapturedComment(idx, e.currentTarget.value);
@@ -373,92 +395,141 @@ function Popup() {
                       }}
                       autoFocus
                     />
-                    <div className="flex gap-1 mt-1">
+                    <div className="edit-actions">
                       <button
                         onClick={(e) => {
                           const textarea = e.currentTarget.parentElement
                             ?.previousElementSibling as HTMLTextAreaElement;
                           editCapturedComment(idx, textarea.value);
                         }}
-                        className="text-xs bg-green-500 text-white px-2 py-1 rounded"
+                        className="btn-success"
                       >
+                        <span className="btn-icon">✓</span>
                         Save
                       </button>
                       <button
                         onClick={() => setEditingIndex(-1)}
-                        className="text-xs bg-gray-500 text-white px-2 py-1 rounded"
+                        className="btn-ghost"
                       >
+                        <span className="btn-icon">×</span>
                         Cancel
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex justify-between items-start">
-                    <span className="flex-1 mr-2">
-                      {comment.substring(0, 60)}
-                      {comment.length > 60 ? "..." : ""}
-                    </span>
-                    <div className="flex gap-1">
+                  <>
+                    <div className="comment-text">
+                      {hoveredComment === idx || comment.length <= 70
+                        ? comment
+                        : `${comment.substring(0, 70)}...`}
+                    </div>
+                    <div className="comment-actions">
                       <button
                         onClick={() => setEditingIndex(idx)}
-                        className="text-xs text-blue-600 hover:underline"
+                        className="action-btn edit"
+                        title="Edit comment"
                       >
-                        Edit
+                        <span className="btn-icon">✏️</span>
                       </button>
                       <button
                         onClick={() => deleteCapturedComment(idx)}
-                        className="text-xs text-red-600 hover:underline"
+                        className="action-btn delete"
+                        title="Delete comment"
                       >
-                        Del
+                        <span className="btn-icon">🗑️</span>
                       </button>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500 mb-3">
-            No comments captured yet. Comments will appear here as you type on
-            LinkedIn or you can add them manually.
-          </p>
-        )}
-      </div>
-
-      {/* Generated Comments Section */}
-      <div className="comments-section mt-4">
-        <h3 className="text-md font-medium text-gray-800">
-          Suggested Comments:
-        </h3>
-        {isLoading ? (
-          <p className="text-sm text-blue-600 mt-2">Generating comments...</p>
-        ) : comments.length > 0 ? (
-          comments.map((comment, idx) => (
-            <div
-              key={idx}
-              className="comment mt-2 p-3 bg-gray-100 rounded-md text-gray-700"
-            >
-              {comment}
+            ))
+          ) : (
+            <div className="empty-state">
+              <div className="empty-icon">📝</div>
+              <h3>No Comments Yet</h3>
+              <p>
+                Comments will appear here as you type on LinkedIn or add them
+                manually
+              </p>
             </div>
-          ))
-        ) : (
-          <p className="text-sm text-gray-500 mt-2">
-            No comments available yet.
-          </p>
-        )}
+          )}
+        </div>
       </div>
 
-      <button
-        onClick={() => generateComments(tone)}
-        disabled={!apiKey || isLoading || capturedComments.length < 3}
-        className="mt-4 w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-      >
-        {isLoading
-          ? "Generating..."
-          : `Generate Comments ${
-              capturedComments.length < 3 ? "(Need 3+ samples)" : ""
-            }`}
-      </button>
+      {/* AI Suggestions Section */}
+      <div className="section">
+        <div className="section-header">
+          <div className="section-title">
+            <span className="section-icon">✨</span>
+            <h2>AI Suggestions</h2>
+            {comments.length > 0 && (
+              <div className="comment-badge">{comments.length}</div>
+            )}
+          </div>
+        </div>
+
+        <div className="suggestions-container">
+          {isLoading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <div className="loading-text">
+                <h3>Generating Comments...</h3>
+                <p>AI is analyzing your tone and creating suggestions</p>
+              </div>
+            </div>
+          ) : comments.length > 0 ? (
+            comments.map((comment, idx) => (
+              <div key={idx} className="suggestion-item">
+                <div className="suggestion-header">
+                  <span className="suggestion-number">{idx + 1}</span>
+                  <button
+                    className="copy-btn"
+                    onClick={() => {
+                      navigator.clipboard.writeText(comment);
+                      // Could add a toast notification here
+                    }}
+                    title="Copy to clipboard"
+                  >
+                    <span className="btn-icon">📋</span>
+                  </button>
+                </div>
+                <div className="suggestion-text">{comment}</div>
+              </div>
+            ))
+          ) : (
+            <div className="empty-state">
+              <div className="empty-icon">🎯</div>
+              <h3>Ready to Generate</h3>
+              <p>
+                Click the button below to get AI-powered comment suggestions
+              </p>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={() => generateComments(tone)}
+          disabled={!apiKey || isLoading || capturedComments.length < 3}
+          className={`btn-primary full-width ${isLoading ? "loading" : ""}`}
+          style={{ marginTop: "16px" }}
+        >
+          {isLoading ? (
+            <>
+              <div className="btn-spinner"></div>
+              Generating...
+            </>
+          ) : (
+            <>
+              <span className="btn-icon">🚀</span>
+              {capturedComments.length < 3
+                ? `Generate Comments (Need ${
+                    3 - capturedComments.length
+                  } more samples)`
+                : "Generate Comments"}
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

@@ -85,14 +85,14 @@ document.addEventListener("input", (event) => {
 // Show a notification when a comment is captured
 function showCaptureNotification(totalComments: number) {
   // Remove any existing notification
-  const existingNotification = document.getElementById("echotype-notification");
+  const existingNotification = document.getElementById("yousaid-notification");
   if (existingNotification) {
     existingNotification.remove();
   }
 
   // Create notification element
   const notification = document.createElement("div");
-  notification.id = "echotype-notification";
+  notification.id = "yousaid-notification";
   notification.style.cssText = `
     position: fixed;
     top: 20px;
@@ -112,8 +112,8 @@ function showCaptureNotification(totalComments: number) {
 
   const needMoreComments = totalComments < 6;
   notification.textContent = needMoreComments
-    ? `EchoType: Comment captured! (${totalComments}/6)`
-    : `EchoType: Comment captured! (${totalComments}) ✓`;
+    ? `YouSaid: Comment captured! (${totalComments}/6)`
+    : `YouSaid: Comment captured! (${totalComments}) ✓`;
 
   document.body.appendChild(notification);
 
@@ -198,7 +198,7 @@ function showCommentSuggestions(
   postContent: string
 ) {
   // Remove any existing suggestions
-  const existingSuggestions = document.getElementById("echotype-suggestions");
+  const existingSuggestions = document.getElementById("yousaid-suggestions");
   if (existingSuggestions) {
     existingSuggestions.remove();
   }
@@ -216,22 +216,20 @@ function showCommentSuggestions(
         }
 
         if (!data.geminiApiKey) {
-          showQuickNotification(
-            "Please set your API key in EchoType extension"
-          );
+          showQuickNotification("Please set your API key in YouSaid extension");
           return;
         }
 
         if (!data.userCommentHistory || data.userCommentHistory.length < 3) {
           showQuickNotification(
-            "EchoType needs 3+ sample comments to generate suggestions"
+            "YouSaid needs 3+ sample comments to generate suggestions"
           );
           return;
         }
 
         // Create suggestions container
         const suggestionsContainer = document.createElement("div");
-        suggestionsContainer.id = "echotype-suggestions";
+        suggestionsContainer.id = "yousaid-suggestions";
         suggestionsContainer.style.cssText = `
       position: fixed;
       bottom: 20px;
@@ -257,7 +255,7 @@ function showCommentSuggestions(
       <div style="display: flex; align-items: center; gap: 12px; color: #60a5fa; font-weight: 600; margin-bottom: 16px; font-size: 16px;">
         <div style="width: 20px; height: 20px; border: 2px solid #60a5fa; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
         <span style="background: linear-gradient(135deg, #60a5fa, #a855f7); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-          EchoType AI
+          YouSaid AI
         </span>
       </div>
       <div style="font-size: 13px; color: #a1a1aa; line-height: 1.5; background: rgba(255, 255, 255, 0.05); padding: 12px; border-radius: 8px; margin-bottom: 16px; max-height: 60px; overflow: hidden;">
@@ -353,10 +351,10 @@ function displaySuggestions(
     <div style="display: flex; justify-between; align-items: center; margin-bottom: 16px;">
       <div style="color: #60a5fa; font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px;">
         <span style="background: linear-gradient(135deg, #60a5fa, #a855f7); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-          🤖 EchoType AI
+          🤖 YouSaid AI
         </span>
       </div>
-      <button id="echotype-close" style="
+              <button id="yousaid-close" style="
         background: rgba(255, 255, 255, 0.1); 
         border: 1px solid rgba(255, 255, 255, 0.2); 
         color: #a1a1aa; 
@@ -380,7 +378,7 @@ function displaySuggestions(
   `;
 
   const suggestionsList = container.querySelector("#suggestions-list");
-  const closeButton = container.querySelector("#echotype-close");
+  const closeButton = container.querySelector("#yousaid-close");
 
   // Add close functionality
   closeButton?.addEventListener("click", () => {
