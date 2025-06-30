@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![YouSaid AI Logo](public/icon.png)
+![YouSaid AI Logo](public/icons/icon128.png)
 
 **Transform your LinkedIn engagement with AI-powered, personalized comment suggestions**
 
@@ -163,8 +163,7 @@ echotype/
 │       ├── 📄 index.html       # Popup HTML template
 │       └── 📄 style.css        # Popup styling
 ├── 📁 public/
-│   ├── 🖼 icon.png            # Extension icon
-│   └── 🖼 vite.svg            # Vite logo
+│   └── 📁 icons/              # Extension icons (16px, 32px, 48px, 128px)
 ├── 📄 manifest.json           # Chrome extension configuration
 ├── 📄 build-extension.sh      # Custom build script
 ├── 📄 package.json           # Project dependencies
