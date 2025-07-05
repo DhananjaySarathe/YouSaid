@@ -20,10 +20,14 @@
 
 ## 🌟 Features
 
-### 🧠 **Smart Learning System**
-- **Real-time Comment Capture**: Automatically learns from your LinkedIn commenting style
-- **Personalized AI**: Generates suggestions that match your unique tone and writing patterns
-- **Session-based Tracking**: Intelligently updates comments as you type and edit
+### 🧠 Smart Learning System
+
+- **Real-time Comment Capture**: Automatically learns from your LinkedIn commenting style  
+- **Personalized AI**: Generates suggestions that match your unique tone and writing patterns  
+- **Session-based Tracking**: Intelligently updates comments as you type and edit  
+- **Comment History Archive**: Securely saves all your past comments in a searchable archive, so you can reuse or reference them anytime you need.
+
+
 
 ### ✨ **AI-Powered Assistance**
 - **Contextual Suggestions**: Analyzes LinkedIn post content to provide relevant comments
